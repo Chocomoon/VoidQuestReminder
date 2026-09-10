@@ -280,8 +280,9 @@ local function CreatePopupIfNeeded()
         self:StopMovingOrSizing()
         local left = self:GetLeft()
         local top = self:GetTop()
-        if left and top then
-            VoidQuestReminderDB.framePos = { x = left, y = top }
+        local parentTop = UIParent:GetTop()
+        if left and top and parentTop then
+            VoidQuestReminderDB.framePos = { x = left, y = top - parentTop }
         end
     end)
 
@@ -477,7 +478,6 @@ local function CreatePopupIfNeeded()
         local savedY = VoidQuestReminderDB.framePos.y or -60
         if savedY > 0 then
             savedY = -60
-            VoidQuestReminderDB.framePos.y = savedY
         end
         popupFrame:ClearAllPoints()
         popupFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", savedX, savedY)
