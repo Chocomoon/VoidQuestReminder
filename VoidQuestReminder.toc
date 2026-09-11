@@ -9,3 +9,4 @@
 Locales\zhCN.lua
 Locales\enUS.lua
 Core.lua
+HuntReminder.lua

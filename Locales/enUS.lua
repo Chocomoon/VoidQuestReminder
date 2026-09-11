@@ -19,6 +19,13 @@ L.MSG_NO_WORLD_QUEST = "No world quest IDs configured"
 L.MSG_WORLD_QUEST_COMPLETED = "Void Confrontation already completed"
 L.MSG_ADDON_LOADED = "|cFF00FF00[VoidQuestReminder] Loaded|r"
 
+L.HUNT_REMINDER_TEXT = "Fang Tangjing activated!"
+L.HUNT_TEST_MAP_NAMES = { "Eversong Woods", "Zul'Aman", "Voidstorm", "Harandar", "Coiled Isle" }
+L.HUNT_BTN_SET_MARKER = "Set Mark"
+L.HUNT_TOOLTIP_SET_MARKER = "Set the Fang Tangjing waypoint on the map (Thanks Aluo for sharing)"
+L.HUNT_TOOLTIP_DONT_REMIND_TODAY = "Don't remind today (this character)"
+L.HUNT_TOOLTIP_DONT_REMIND_LOGIN = "Don't remind this login"
+
 L.VQR_QUEST_NAMES = {
     [96400] = "Entangling Corruption",
     [96548] = "Spore",

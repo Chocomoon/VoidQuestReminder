@@ -8,7 +8,6 @@ local DEFAULT_DB = {
     chars = {},
     config = {
         worldQuestIds = { 96548, 96400 },
-        weekDay = nil,
         remindEvenIfCompleted = false,
     },
     nextWeekReset = nil,
@@ -92,30 +91,9 @@ local function Initialize()
     end
 end
 
--- ===================== 周重置日参数化 =====================
-local function GetDefaultWeekDay()
-    local locale = GetLocale()
-    if locale and (locale:find("^zh") or locale:find("^ko") or locale:find("^tw") or locale:find("^fr")) then
-        return 5
-    end
-    return 7
-end
-
-local function GetWeekStart(dayOfWeek)
-    dayOfWeek = dayOfWeek or GetDefaultWeekDay()
-    local now = time()
-    local t = date("*t", now)
-    local daysToTarget = (dayOfWeek - t.wday + 7) % 7
-    local dt = now - daysToTarget * 86400
-    local target = date("*t", dt)
-    target.hour = 7
-    target.min = 0
-    target.sec = 0
-    return time(target)
-end
-
+-- ===================== 每周重置（官方 API 返回的服务器周重置起点）=====================
 local function GetCurrentWeekStart()
-    return GetWeekStart(VoidQuestReminderDB.config.weekDay or GetDefaultWeekDay())
+    return C_DateAndTime.GetWeeklyResetStartTime()
 end
 
 -- ===================== 每周重置（AlterEgo 时间戳模式）=====================
