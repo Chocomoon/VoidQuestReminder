@@ -123,6 +123,9 @@ local function IsEntryAncestorOf(a, b)
     return false
 end
 
+-- 前向声明：FindMapEntryByLocalizedName 定义在其后，需先声明以避免按全局名解析为 nil
+local FindMapEntryByLocalizedName
+
 -- 当前激活的被遗弃的营地对应的 HUNT_MAPS 条目
 -- 快速路径走 GetQuestUiMapID；部分地图（如盘卷蛇岛）会返回 0/无效 mapID，
 -- 兜底路径按图扫描任务坐标定位（C_TaskQuest.GetQuestLocation 不在该图时返回 nil,nil）
