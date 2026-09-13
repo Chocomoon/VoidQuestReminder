@@ -1,7 +1,7 @@
 ## Interface: 120000
 ## Title: 虚空任务提醒
 ## Notes: 虚空世界任务激活与虚空决战完成提醒
-## Version: 1.0.2
+## Version: 1.0.3
 ## Author: Choco
 ## SavedVariables: VoidQuestReminderDB
 ## IconTexture: Interface\Icons\INV_Misc_QuestionMark

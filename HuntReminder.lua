@@ -12,7 +12,7 @@ local HUNT_MAPS = {
     { index = 2, uiMapID = 2437, zh = "祖阿曼",     en = "Zul'Aman",       x = 43.0, y = 30.0 },
     { index = 3, uiMapID = 2405, zh = "虚影风暴",   en = "Voidstorm",      x = 43.3, y = 69.0 },
     { index = 4, uiMapID = 2413, zh = "哈籁恩达尔", en = "Harandar",       x = 53.0, y = 34.0 },
-    { index = 5, uiMapID = 2512, zh = "盘卷蛇岛",   en = "Coiled Isle",    x = 52.0, y = 43.0 },
+    { index = 5, uiMapID = 2512, zh = "盘卷蛇岛",   en = "Coiled Isle",    x = 52.2, y = 42.8 },
 }
 
 local ROW_PITCH = 26
@@ -123,8 +123,15 @@ local function IsEntryAncestorOf(a, b)
     return false
 end
 
--- 前向声明：FindMapEntryByLocalizedName 定义在其后，需先声明以避免按全局名解析为 nil
-local FindMapEntryByLocalizedName
+-- 按客户端本地化地图名查找 HUNT_MAPS 条目（zh/en 均可）
+local function FindMapEntryByLocalizedName(name)
+    for _, entry in ipairs(HUNT_MAPS) do
+        if entry.zh == name or entry.en == name then
+            return entry
+        end
+    end
+    return nil
+end
 
 -- 当前激活的被遗弃的营地对应的 HUNT_MAPS 条目
 -- 快速路径走 GetQuestUiMapID；部分地图（如盘卷蛇岛）会返回 0/无效 mapID，
@@ -205,16 +212,6 @@ local function GetEntryDisplayName(entry)
     end
     local names = L.HUNT_TEST_MAP_NAMES
     return (names and names[entry.index]) or entry.zh
-end
-
--- 按客户端本地化地图名查找 HUNT_MAPS 条目（zh/en 均可）
-local function FindMapEntryByLocalizedName(name)
-    for _, entry in ipairs(HUNT_MAPS) do
-        if entry.zh == name or entry.en == name then
-            return entry
-        end
-    end
-    return nil
 end
 
 -- 给定条目在对应地图上设置用户标记点（坐标百分比 /100 → 归一化）
