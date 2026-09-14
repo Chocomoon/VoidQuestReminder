@@ -355,7 +355,7 @@ local function CreatePopupIfNeeded()
     popupFrame:RegisterForDrag("LeftButton")
     popupFrame:SetFrameStrata("DIALOG")
 
-    -- 拖拽 + 保存位置（相对父框架顶部，与核心弹窗同一套坐标换算）
+    -- 拖拽 + 保存位置（带屏幕边界钳制，防止拖出屏幕无法恢复）
     popupFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
     popupFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
@@ -363,6 +363,15 @@ local function CreatePopupIfNeeded()
         local top = self:GetTop()
         local parentTop = UIParent:GetTop()
         if left and top and parentTop then
+            local width = self:GetWidth()
+            local height = self:GetHeight()
+            local screenRight = UIParent:GetRight()
+            if width and height and screenRight and width <= screenRight and height <= parentTop then
+                left = math.max(0, math.min(left, screenRight - width))
+                top = math.max(height, math.min(top, parentTop))
+                self:ClearAllPoints()
+                self:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - parentTop)
+            end
             VoidQuestReminderDB.huntReminder.framePos = { x = left, y = top - parentTop }
         end
     end)
@@ -550,11 +559,19 @@ SlashCmdList["FTJ"] = function(msg)
         if popupFrame then UpdatePopupContent() end
         print("|cFF00FF00[狩猎提醒] 当前角色方唐镜提醒状态已重置|r")
         RefreshReminder()
+    elseif msg == "resetpos" then
+        VoidQuestReminderDB.huntReminder.framePos = nil
+        if popupFrame then
+            popupFrame:ClearAllPoints()
+            popupFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", DEFAULT_X, DEFAULT_Y)
+        end
+        print("|cFF00FF00[狩猎提醒] 弹窗位置已重置到默认|r")
     else
         print("|cFF00FF00[狩猎提醒] 方唐镜提醒命令:|r")
         print("  /ftj test - 强制显示弹窗（5图预览）")
         print("  /ftj hide - 隐藏弹窗")
         print("  /ftj status - 查看当前状态")
         print("  /ftj reset - 重置当前角色提醒状态")
+        print("  /ftj resetpos - 重置弹窗位置到默认")
     end
 end

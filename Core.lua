@@ -252,7 +252,7 @@ local function CreatePopupIfNeeded()
     popupFrame:RegisterForDrag("LeftButton")
     popupFrame:SetFrameStrata("DIALOG")
 
-    -- 拖拽 + 保存位置
+    -- 拖拽 + 保存位置（带屏幕边界钳制，防止拖出屏幕无法恢复）
     popupFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
     popupFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
@@ -260,6 +260,15 @@ local function CreatePopupIfNeeded()
         local top = self:GetTop()
         local parentTop = UIParent:GetTop()
         if left and top and parentTop then
+            local width = self:GetWidth()
+            local height = self:GetHeight()
+            local screenRight = UIParent:GetRight()
+            if width and height and screenRight and width <= screenRight and height <= parentTop then
+                left = math.max(0, math.min(left, screenRight - width))
+                top = math.max(height, math.min(top, parentTop))
+                self:ClearAllPoints()
+                self:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - parentTop)
+            end
             VoidQuestReminderDB.framePos = { x = left, y = top - parentTop }
         end
     end)
@@ -691,11 +700,19 @@ SlashCmdList["VOIDQUESTREMINDER"] = function(msg)
         ch.loginSuppressed = false
         lastCheck = 0
         print("|cFF00FF00[虚空提醒] 当前角色提醒设置已重置|r")
+    elseif msg == "resetpos" then
+        VoidQuestReminderDB.framePos = nil
+        if popupFrame then
+            popupFrame:ClearAllPoints()
+            popupFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 60, -60)
+        end
+        print("|cFF00FF00[虚空提醒] 弹窗位置已重置到默认|r")
     else
         print("|cFF00FF00[虚空提醒] 命令:|r")
         print("  /vqr show - 强制显示弹窗（无视条件）")
         print("  /vqr hide - 隐藏弹窗")
         print("  /vqr status - 查看当前状态")
         print("  /vqr reset - 重置当前角色提醒设置")
+        print("  /vqr resetpos - 重置弹窗位置到默认")
     end
 end
