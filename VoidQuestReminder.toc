@@ -6,7 +6,9 @@
 ## SavedVariables: VoidQuestReminderDB
 ## IconTexture: Interface\Icons\INV_Misc_QuestionMark
 
+# Locale 加载顺序：zhCN 无条件注册为默认兜底，enUS/zhTW 按客户端语言后加载覆盖
 Locales\zhCN.lua
 Locales\enUS.lua
+Locales\zhTW.lua
 Core.lua
 HuntReminder.lua
