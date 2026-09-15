@@ -27,6 +27,15 @@ local function GetCharKey()
 end
 
 -- ===================== 常量 =====================
+local VOID_PARENT_MAP = 2405
+local VOID_ZONE_IDS = { [2600] = true, [2599] = true }
+
+-- 多语言地图名（用于 POI fallback 匹配，新增语言时按需追加）
+local VOID_ZONE_NAMES = {
+    [2600] = { "奈格塔尔", "奈格塔爾", "Naigtal" },
+    [2599] = { "瓦尔", "瓦爾", "Val" },
+}
+
 local VOID_CONFRONTATION_IDS = { 96717, 96718, 96713, 96714 }
 
 -- ===================== 版本迁移（AlterEgo 递归模式）=====================
@@ -110,24 +119,42 @@ local function TaskWeeklyReset()
 end
 
 -- ===================== 虚空世界检测 =====================
--- 按固定世界任务ID判定激活的虚空世界（不再依赖本地化地图名/POI名匹配，
--- 避免简中侥幸可用、繁中及其它语言失配导致弹窗不显示）
+-- 通过父地图上的虚空入口 POI 判定当前激活的虚空世界（同一时间只有一个入口，
+-- 可避免两个虚空世界任务同时激活时误判）。地图判定优先用 POI 的 linkedUiMapID
+--（不依赖任何本地化文本），不可用时按多语言名列表做 fallback 匹配。
 local function ResolveActiveWorld()
-    if not C_TaskQuest or not C_TaskQuest.IsActive then
+    if not C_AreaPoiInfo or not C_AreaPoiInfo.GetAreaPOIForMap then
         return nil
     end
 
-    local questIds = VoidQuestReminderDB.config.worldQuestIds or DEFAULT_DB.config.worldQuestIds
-    for index, qid in ipairs(questIds) do
-        if qid and C_TaskQuest.IsActive(qid) then
-            local mapID = (index == 1) and 2600 or 2599
-            local mapInfo = C_Map.GetMapInfo(mapID)
-            local mapName = mapInfo and mapInfo.name or nil
-            local secondsLeft = nil
-            if C_TaskQuest.GetQuestTimeLeftSeconds then
-                secondsLeft = C_TaskQuest.GetQuestTimeLeftSeconds(qid)
+    local function GetSecondsLeft(poiID)
+        if C_AreaPoiInfo.GetAreaPOISecondsLeft then
+            return C_AreaPoiInfo.GetAreaPOISecondsLeft(poiID)
+        end
+        return nil
+    end
+
+    local pois = C_AreaPoiInfo.GetAreaPOIForMap(VOID_PARENT_MAP) or {}
+    for _, poiID in ipairs(pois) do
+        local info = C_AreaPoiInfo.GetAreaPOIInfo(VOID_PARENT_MAP, poiID)
+        if info then
+            -- 首选：linkedUiMapID（不依赖任何文本）
+            local linkedID = info.linkedUiMapID
+            if linkedID and VOID_ZONE_IDS[linkedID] then
+                local mapInfo = C_Map.GetMapInfo(linkedID)
+                return linkedID, mapInfo and mapInfo.name or nil, GetSecondsLeft(poiID)
             end
-            return mapID, mapName, secondsLeft
+            -- fallback：多语言名列表匹配
+            if info.name then
+                for mapID, names in pairs(VOID_ZONE_NAMES) do
+                    for _, name in ipairs(names) do
+                        if name and info.name:find(name, 1, true) then
+                            local mapInfo = C_Map.GetMapInfo(mapID)
+                            return mapID, mapInfo and mapInfo.name or nil, GetSecondsLeft(poiID)
+                        end
+                    end
+                end
+            end
         end
     end
     return nil

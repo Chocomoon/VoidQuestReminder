@@ -217,7 +217,7 @@ end
 -- 给定条目在对应地图上设置用户标记点（坐标百分比 /100 → 归一化）
 local function SetWaypointByMapID(entry, displayName)
     local info = C_Map.GetMapInfo(entry.uiMapID)
-    if info and info.name ~= entry.zh and info.name ~= entry.en then
+    if info and info.name ~= entry.zh and info.name ~= entry.zhTW and info.name ~= entry.en then
         print("|cFF00FF00[狩猎提醒] mapID " .. entry.uiMapID .. " 名称不符（" .. tostring(info.name) .. "），跳过|r")
         return
     end
