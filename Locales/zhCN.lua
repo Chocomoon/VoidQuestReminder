@@ -31,6 +31,5 @@ L.VQR_QUEST_NAMES = {
     [96548] = "孢分榜首",
 }
 
-if GetLocale() == "zhCN" then
-    _G["VoidQuestReminder_Locale"] = L
-end
+-- 简体中文作为默认兜底：无条件注册，供其它无本地化的语言客户端使用
+_G["VoidQuestReminder_Locale"] = L

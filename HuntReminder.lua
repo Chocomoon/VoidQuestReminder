@@ -8,11 +8,11 @@ local HUNT_WQ_IDS = { 95974, 96596, 96597, 96598, 96599 }
 
 -- 5图轮换地图（Midnight mapID 已核实）；顺序与 HUNT_TEST_MAP_NAMES 一致，坐标为百分比（/way 风格）
 local HUNT_MAPS = {
-    { index = 1, uiMapID = 2395, zh = "永歌森林",   en = "Eversong Woods", x = 45.7, y = 55.1 },
-    { index = 2, uiMapID = 2437, zh = "祖阿曼",     en = "Zul'Aman",       x = 43.0, y = 30.0 },
-    { index = 3, uiMapID = 2405, zh = "虚影风暴",   en = "Voidstorm",      x = 43.3, y = 69.0 },
-    { index = 4, uiMapID = 2413, zh = "哈籁恩达尔", en = "Harandar",       x = 53.0, y = 34.0 },
-    { index = 5, uiMapID = 2512, zh = "盘卷蛇岛",   en = "Coiled Isle",    x = 52.2, y = 42.8 },
+    { index = 1, uiMapID = 2395, zh = "永歌森林",   zhTW = "永歌森林",   en = "Eversong Woods", x = 45.7, y = 55.1 },
+    { index = 2, uiMapID = 2437, zh = "祖阿曼",     zhTW = "祖阿曼",     en = "Zul'Aman",       x = 43.0, y = 30.0 },
+    { index = 3, uiMapID = 2405, zh = "虚影风暴",   zhTW = "虛影風暴",   en = "Voidstorm",      x = 43.3, y = 69.0 },
+    { index = 4, uiMapID = 2413, zh = "哈籁恩达尔", zhTW = "哈籟恩達爾", en = "Harandar",       x = 53.0, y = 34.0 },
+    { index = 5, uiMapID = 2512, zh = "盘卷蛇岛",   zhTW = "盤卷蛇島",   en = "Coiled Isle",    x = 52.2, y = 42.8 },
 }
 
 local ROW_PITCH = 26
@@ -123,10 +123,10 @@ local function IsEntryAncestorOf(a, b)
     return false
 end
 
--- 按客户端本地化地图名查找 HUNT_MAPS 条目（zh/en 均可）
+-- 按客户端本地化地图名查找 HUNT_MAPS 条目（zh/zhTW/en 均可）
 local function FindMapEntryByLocalizedName(name)
     for _, entry in ipairs(HUNT_MAPS) do
-        if entry.zh == name or entry.en == name then
+        if entry.zh == name or entry.zhTW == name or entry.en == name then
             return entry
         end
     end
@@ -217,7 +217,7 @@ end
 -- 给定条目在对应地图上设置用户标记点（坐标百分比 /100 → 归一化）
 local function SetWaypointByMapID(entry, displayName)
     local info = C_Map.GetMapInfo(entry.uiMapID)
-    if info and info.name ~= entry.zh and info.name ~= entry.en then
+    if info and info.name ~= entry.zh and info.name ~= entry.zhTW and info.name ~= entry.en then
         print("|cFF00FF00[狩猎提醒] mapID " .. entry.uiMapID .. " 名称不符（" .. tostring(info.name) .. "），跳过|r")
         return
     end
