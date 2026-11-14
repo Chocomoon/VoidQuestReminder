@@ -2,23 +2,39 @@
 local addonName = "VoidQuestReminder"
 local L = _G["VoidQuestReminder_Locale"] or {}
 
+-- 命令输出统一走语言文件（三语文件必须齐备）。缺键/格式坏都在聊天框里点名，
+-- 而不是让 /vqr 整个命令抛 bad argument 中断
+local function Say(key, ...)
+    local tmpl = L[key]
+    if type(tmpl) ~= "string" then
+        print("|cFF00FF00[VoidQuestReminder] missing locale key: " .. key .. "|r")
+        return
+    end
+    if select("#", ...) == 0 then
+        print(tmpl)
+        return
+    end
+    -- 直接透传可变参数，不走 unpack（5.2+ 已移除该全局，测试用的 fengari 就跑不起来）
+    local ok, text = pcall(string.format, tmpl, ...)
+    print(ok and text or ("|cFF00FF00[VoidQuestReminder] bad locale format: " .. key .. "|r"))
+end
+
 -- ===================== 默认模板（AlterEgo 模式）=====================
+-- 只有 config 会被逐键合并进存档；chars / version / framePos 等运行时字段
+-- 由 Initialize / MigrateDB 自行建立，不在此声明（避免"模板里有、实际不生效"的误解）
 local DEFAULT_DB = {
-    version = 3,
-    chars = {},
     config = {
         worldQuestIds = { 96548, 96400 },
         remindEvenIfCompleted = false,
     },
-    nextWeekReset = nil,
-    framePos = nil,
 }
 
 local DEFAULT_CHAR = {
     dontRemindThisWeek = false,
-    weekStart = nil,
     loginSuppressed = false,
     remindEvenIfCompleted = false,
+    -- 不写 weekStart：DEFAULT_CHAR 是按 pairs 逐个补默认值的，值为 nil 的键根本不会被遍历到，
+    -- 写了也只是看起来"有默认值"。该字段在任何一次周重置/点击"本周不再提醒"时才会落盘
 }
 
 -- ===================== 角色标识 =====================
@@ -28,7 +44,11 @@ end
 
 -- ===================== 常量 =====================
 local VOID_PARENT_MAP = 2405
-local VOID_ZONE_IDS = { [2600] = true, [2599] = true }
+
+-- 虚空世界 mapID → config.worldQuestIds 的下标。
+-- 既是"是不是我们认识的虚空世界"的成员表，也是任务 ID 的索引表：
+-- 新增虚空世界只改这一处（旧写法是三张同 id 的表 + 两处 `(mapID == 2600) and 1 or ...`）
+local VOID_ZONE_QUEST_INDEX = { [2600] = 1, [2599] = 2 }
 
 -- 多语言地图名（用于 POI fallback 匹配，新增语言时按需追加）
 local VOID_ZONE_NAMES = {
@@ -64,9 +84,7 @@ local function MigrateDB()
             if VoidQuestReminderDB.nextWeekReset == nil then
                 VoidQuestReminderDB.nextWeekReset = oldRem.nextWeekReset
             end
-            if VoidQuestReminderDB.config.weekDay == nil and oldRem.weekDay then
-                VoidQuestReminderDB.config.weekDay = oldRem.weekDay
-            end
+            -- oldRem.weekDay 曾经迁到 config.weekDay，但该字段全代码零读取，已停止迁移（见 Initialize 的清理）
             VoidQuestReminderDB.reminder = nil
         end
     end
@@ -96,6 +114,12 @@ local function Initialize()
             VoidQuestReminderDB.chars[charKey][k] = v
         end
     end
+
+    -- 遗留字段清理（读侧早已没有，避免长期占着存档）：
+    --   config.weekDay —— v1/v2 的"每周几重置"设定，改用官方周重置 API 后失效
+    --   huntReminder   —— 1.0.x 方唐镜狩猎模块的全部状态
+    VoidQuestReminderDB.config.weekDay = nil
+    VoidQuestReminderDB.huntReminder = nil
 end
 
 -- ===================== 每周重置（官方 API 返回的服务器周重置起点）=====================
@@ -140,7 +164,7 @@ local function ResolveActiveWorld()
         if info then
             -- 首选：linkedUiMapID（不依赖任何文本）
             local linkedID = info.linkedUiMapID
-            if linkedID and VOID_ZONE_IDS[linkedID] then
+            if linkedID and VOID_ZONE_QUEST_INDEX[linkedID] then
                 local mapInfo = C_Map.GetMapInfo(linkedID)
                 return linkedID, mapInfo and mapInfo.name or nil, GetSecondsLeft(poiID)
             end
@@ -160,12 +184,17 @@ local function ResolveActiveWorld()
     return nil
 end
 
-local function GetActiveWorldQuestId()
-    local mapID = ResolveActiveWorld()
-    if not mapID then return nil end
+-- 由虚空世界 mapID 取对应的世界任务 ID（mapID 未识别时返回 nil）。
+-- 单独抽出，是为了让"判定该弹哪个任务的框"和"框里显示哪个任务"共用同一次地图解析结果
+local function GetWorldQuestIdForMap(mapID)
+    local index = VOID_ZONE_QUEST_INDEX[mapID]
+    if not index then return nil end
     local questIds = VoidQuestReminderDB.config.worldQuestIds or DEFAULT_DB.config.worldQuestIds
-    local index = (mapID == 2600) and 1 or (mapID == 2599) and 2
     return questIds and questIds[index] or nil
+end
+
+local function GetActiveWorldQuestId()
+    return GetWorldQuestIdForMap(ResolveActiveWorld())
 end
 
 -- ===================== 虚空决战完成判断 =====================
@@ -321,7 +350,7 @@ local function CreatePopupIfNeeded()
             ch.dontRemindThisWeek = true
             ch.weekStart = GetCurrentWeekStart()
             popupFrame:Hide()
-            print("|cFF00FF00[虚空提醒] 本周不再提醒（当前角色），重新打开弹窗请输入 /vqr show，需重新提醒请输入 /vqr reset|r")
+            Say("MSG_SUPPRESS_WEEK")
         end)
 
     -- 按钮2：本次登录不再提醒（×）
@@ -331,7 +360,7 @@ local function CreatePopupIfNeeded()
             forceShow = false
             VoidQuestReminderDB.chars[GetCharKey()].loginSuppressed = true
             popupFrame:Hide()
-            print("|cFF00FF00[虚空提醒] 本次登录不再提醒，重新打开弹窗请输入 /vqr show，需重新提醒请输入 /vqr reset|r")
+            Say("MSG_SUPPRESS_LOGIN")
         end)
 
     loginBtn:SetPoint("TOPRIGHT", popupFrame, "TOPRIGHT", -6, -4)
@@ -501,17 +530,20 @@ local function FormatTimeLeft(totalSeconds)
     return string.format(L.VQR_TIME_LEFT or "%d分%d秒", m, s)
 end
 
-local function UpdatePopupText(extraText)
+-- resolvedMapID / resolvedZoneName：调用方已解析过虚空世界时传入，避免同一帧里重复扫 POI
+local function UpdatePopupText(extraText, resolvedMapID, resolvedZoneName)
     if not popupFrame then return end
 
-    local popupWidth = IsVoidConfrontationCompleted() and 400 or 370
-    popupFrame:SetSize(popupWidth, 56)
+    local completed = IsVoidConfrontationCompleted()
+    popupFrame:SetSize(completed and 400 or 370, 56)
 
-    local mapID, zoneName, secondsLeft = ResolveActiveWorld()
+    local mapID, zoneName = resolvedMapID, resolvedZoneName
+    if not mapID then
+        mapID, zoneName = ResolveActiveWorld()
+    end
+
     local zonePrefix = zoneName and ("【" .. zoneName .. "】") or ""
-    local questIds = VoidQuestReminderDB.config.worldQuestIds
-    local index = (mapID == 2600) and 1 or (mapID == 2599) and 2
-    local qid = questIds and questIds[index]
+    local qid = GetWorldQuestIdForMap(mapID)
     local nameMap = L.VQR_QUEST_NAMES or {}
 
     local questName = (qid and nameMap[qid]) or (qid and tostring(qid)) or "?"
@@ -538,8 +570,8 @@ local function UpdatePopupText(extraText)
         end
     end
 
-    if IsVoidConfrontationCompleted() then
-        statusText = statusText .. " （已完成）"
+    if completed then
+        statusText = statusText .. (L.VQR_COMPLETED_SUFFIX or "（已完成）")
     end
 
     local displayText = string.format(
@@ -565,7 +597,8 @@ function ShowReminder()
             if ticker then ticker:Cancel(); ticker = nil end
             return
         end
-        local qid = GetActiveWorldQuestId()
+        local mapID, zoneName = ResolveActiveWorld()
+        local qid = GetWorldQuestIdForMap(mapID)
         if qid and C_TaskQuest and C_TaskQuest.IsActive and C_TaskQuest.IsActive(qid) then
             if not ShouldRemindEvenIfCompleted()
                 and not forceShow
@@ -574,7 +607,7 @@ function ShowReminder()
                 return
             end
             questLostSince = nil
-            UpdatePopupText()
+            UpdatePopupText(nil, mapID, zoneName)
         else
             local now = time()
             if not questLostSince then
@@ -604,7 +637,7 @@ function ShowReminderForce()
     forceShow = true
     questLostSince = nil
     popupShowTime = time()
-    popupFrame.debugHint:SetText("【手动显示】拖拽调整位置")
+    popupFrame.debugHint:SetText(L.HINT_MANUAL_SHOW or "【手动显示】拖拽调整位置")
     popupFrame.debugHint:Show()
 
     UpdatePopupText()
@@ -664,13 +697,18 @@ f:SetScript("OnEvent", function(self, event, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
-        VoidQuestReminderDB.chars[GetCharKey()].loginSuppressed = false
         TaskWeeklyReset()
         lastCheck = 0
         CheckAndNotify()
         C_Timer.NewTicker(POLL_INTERVAL, PollCheck)
 
     elseif event == "PLAYER_ENTERING_WORLD" then
+        -- 「本次登录不再提醒」只在真正登录时清空。/reload 也会触发 PLAYER_ENTERING_WORLD，
+        -- 但此时 isInitialLogin 为 false：玩家刚点过×，重载界面不该让弹窗又冒出来
+        local isInitialLogin = ...
+        if isInitialLogin then
+            VoidQuestReminderDB.chars[GetCharKey()].loginSuppressed = false
+        end
         lastCheck = 0
         CheckAndNotify()
 
@@ -690,52 +728,60 @@ end)
 SLASH_VOIDQUESTREMINDER1 = "/vqr"
 SLASH_VOIDQUESTREMINDER2 = "/voidquest"
 SlashCmdList["VOIDQUESTREMINDER"] = function(msg)
+    -- 统一去空白 + 转小写："/vqr  Show" 这类多空格/大写输入以前会掉进帮助分支
+    msg = (msg or ""):lower():match("^%s*(.-)%s*$") or ""
+
     if msg == "show" then
         lastCheck = 0
         ShowReminderForce()
-        print("|cFF00FF00[虚空提醒] 已强制显示弹窗（无视条件）|r")
+        Say("MSG_SHOW_FORCED")
     elseif msg == "hide" then
         forceShow = false
         HideReminder()
-        print("|cFF00FF00[虚空提醒] 已隐藏弹窗|r")
+        Say("MSG_HIDDEN")
     elseif msg == "status" then
         local ch = VoidQuestReminderDB.chars[GetCharKey()]
-        local mapID, zoneName = ResolveActiveWorld()
+        local _, zoneName = ResolveActiveWorld()
         local completed = IsVoidConfrontationCompleted()
         local qid = GetActiveWorldQuestId()
         local questActive = false
         if qid and C_TaskQuest and C_TaskQuest.IsActive then
             questActive = C_TaskQuest.IsActive(qid) or false
         end
-        print("|cFF00FF00[虚空提醒] 状态:|r")
-        print("  虚空世界: " .. (zoneName or "无"))
-        print("  逃课任务ID: " .. (qid and tostring(qid) or "无"))
-        print("  逃课任务激活: " .. (questActive and "是" or "否"))
-        print("  虚空决战: " .. (completed and "已完成" or "未完成"))
-        print("  本周不再提醒: " .. tostring(ch.dontRemindThisWeek))
-        print("  本次登录不再提醒: " .. tostring(ch.loginSuppressed))
-        print("  已完成仍提醒(所有角色): " .. tostring(VoidQuestReminderDB.config.remindEvenIfCompleted))
-        print("  已完成仍提醒(当前角色): " .. tostring(VoidQuestReminderDB.chars[GetCharKey()].remindEvenIfCompleted))
+        Say("STATUS_HEADER")
+        Say("STATUS_WORLD", zoneName or L.VAL_NONE)
+        Say("STATUS_QUEST_ID", qid and tostring(qid) or L.VAL_NONE)
+        Say("STATUS_QUEST_ACTIVE", questActive and L.VAL_YES or L.VAL_NO)
+        Say("STATUS_CONFRONTATION", completed and L.VAL_DONE or L.VAL_UNDONE)
+        Say("STATUS_SUPPRESS_WEEK", ch.dontRemindThisWeek and L.VAL_YES or L.VAL_NO)
+        Say("STATUS_SUPPRESS_LOGIN", ch.loginSuppressed and L.VAL_YES or L.VAL_NO)
+        Say("STATUS_FORCE_SHOW", forceShow and L.VAL_YES or L.VAL_NO)
+        Say("STATUS_REMIND_ALL", VoidQuestReminderDB.config.remindEvenIfCompleted and L.VAL_YES or L.VAL_NO)
+        Say("STATUS_REMIND_CHAR", ch.remindEvenIfCompleted and L.VAL_YES or L.VAL_NO)
     elseif msg == "reset" then
         local ch = VoidQuestReminderDB.chars[GetCharKey()]
         ch.dontRemindThisWeek = false
         ch.weekStart = nil
         ch.loginSuppressed = false
+        -- forceShow 是 /vqr show 留下的会话内状态，不在这里清掉的话
+        -- 弹窗会一直停在"强制显示"模式，自动隐藏逻辑整晚失效
+        forceShow = false
         lastCheck = 0
-        print("|cFF00FF00[虚空提醒] 当前角色提醒设置已重置|r")
+        Say("MSG_RESET_DONE")
+        CheckAndNotify()
     elseif msg == "resetpos" then
         VoidQuestReminderDB.framePos = nil
         if popupFrame then
             popupFrame:ClearAllPoints()
             popupFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 60, -60)
         end
-        print("|cFF00FF00[虚空提醒] 弹窗位置已重置到默认|r")
+        Say("MSG_RESETPOS_DONE")
     else
-        print("|cFF00FF00[虚空提醒] 命令:|r")
-        print("  /vqr show - 强制显示弹窗（无视条件）")
-        print("  /vqr hide - 隐藏弹窗")
-        print("  /vqr status - 查看当前状态")
-        print("  /vqr reset - 重置当前角色提醒设置")
-        print("  /vqr resetpos - 重置弹窗位置到默认")
+        Say("HELP_HEADER")
+        Say("HELP_SHOW")
+        Say("HELP_HIDE")
+        Say("HELP_STATUS")
+        Say("HELP_RESET")
+        Say("HELP_RESETPOS")
     end
 end

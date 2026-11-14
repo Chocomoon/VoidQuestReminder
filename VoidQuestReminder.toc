@@ -1,14 +1,14 @@
-## Interface: 120000
+## Interface: 120000, 120100, 120105, 120107
 ## Title: 虚空任务提醒
 ## Notes: 虚空世界任务激活与虚空决战完成提醒
-## Version: 1.0.5
+## Version: 1.1.0
 ## Author: Choco
 ## SavedVariables: VoidQuestReminderDB
 ## IconTexture: Interface\Icons\INV_Misc_QuestionMark
 
 # Locale 加载顺序：zhCN 无条件注册为默认兜底，enUS/zhTW 按客户端语言后加载覆盖
-Locales\zhCN.lua
-Locales\enUS.lua
-Locales\zhTW.lua
+# 路径用正斜杠：反斜杠在 Windows 可用，macOS 下会找不到文件
+Locales/zhCN.lua
+Locales/enUS.lua
+Locales/zhTW.lua
 Core.lua
-HuntReminder.lua
