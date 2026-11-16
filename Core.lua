@@ -583,7 +583,7 @@ local function UpdatePopupText(extraText, resolvedMapID, resolvedZoneName)
     popupFrame.text:SetText(displayText)
 end
 
-function ShowReminder()
+local function ShowReminder()
     if ticker then ticker:Cancel(); ticker = nil end
     CreatePopupIfNeeded()
     questLostSince = nil
@@ -622,7 +622,7 @@ function ShowReminder()
     end)
 end
 
-function HideReminder()
+local function HideReminder()
     if ticker then ticker:Cancel(); ticker = nil end
     if popupFrame then
         if popupFrame.debugHint then popupFrame.debugHint:Hide() end
@@ -630,7 +630,7 @@ function HideReminder()
     end
 end
 
-function ShowReminderForce()
+local function ShowReminderForce()
     if ticker then ticker:Cancel(); ticker = nil end
     CreatePopupIfNeeded()
 
